@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Heathrow runways right now</title>
+<style>
+:root{--bg:#e4e7ea;--ink:#14181c;--mute:#565e66;--road:#2a2f35;--land:#1f8a58;--dep:#b86a0a}
+*{box-sizing:border-box}
+body{margin:0 auto;max-width:760px;padding:clamp(20px,5vw,56px);background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif}
+h1{font-size:16px;font-weight:600;color:var(--mute);margin:0 0 20px}
+.row{display:flex;align-items:baseline;gap:16px;margin:0 0 6px}
+.row span{width:6.5em;font-size:18px;font-weight:600}
+.row b{font-size:clamp(40px,11vw,76px);line-height:1.05;letter-spacing:-.02em}
+.l span{color:var(--land)}.d span{color:var(--dep)}
+.strip{position:relative;display:flex;align-items:center;justify-content:space-between;height:64px;margin:14px 0;padding:0 16px;border-radius:4px;color:#fff;background:var(--road) repeating-linear-gradient(90deg,transparent 0 28px,#ffffff55 28px 48px) center/100% 2px no-repeat}
+.strip b{background:var(--road);padding:2px 10px;font-size:20px}
+.strip i{display:flex;gap:8px;font-style:normal}
+.a,.d2{padding:2px 10px;border-radius:3px;font-size:14px;font-weight:600;background:var(--road)}
+.a{color:#6fe0a3}.d2{color:#ffb44f}
+#msg{margin-top:24px}.mute{color:var(--mute);font-size:14px}
+</style></head><body>
+<h1>Heathrow runways in use</h1>
+<div class="row l"><span>Landing</span><b id="arr">…</b></div>
+<div class="row d"><span>Departing</span><b id="dep">…</b></div>
+<div class="strip"><b id="lN"></b><i id="tN"></i></div>
+<div class="strip"><b id="lS"></b><i id="tS"></i></div>
+<p id="msg"></p>
+<p class="mute" id="upd"></p>
+<p class="mute">In westerly winds the two runways swap roles at 15:00 and the order flips each week. In easterly winds they don't swap.</p>
+<script>
+const $=id=>document.getElementById(id);
+const mins=()=>{const p=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'numeric',minute:'numeric',hour12:false}).formatToParts(new Date()).map(x=>[x.type,x.value]));return(+p.hour%24)*60+ +p.minute};
+function predict(s){if(s.mode==='E')return{arr:'09L',dep:'09R'};const w=Math.floor((Date.now()-Date.parse(s.ref))/6048e5),f=w%2?!s.flip:s.flip;return(mins()<900)===f?{arr:'27L',dep:'27R'}:{arr:'27R',dep:'27L'}}
+function show(arr,dep,mode,msg){
+  $('arr').textContent=arr;$('dep').textContent=dep;
+  const [n,s]=mode==='E'?['09L','09R']:['27R','27L'];
+  for(const [id,name] of [['N',n],['S',s]]){
+    $('l'+id).textContent=name;
+    $('t'+id).innerHTML=(arr.includes(name)?'<span class="a">Landing</span>':'')+(dep.includes(name)?'<span class="d2">Departing</span>':'');
+  }
+  $('msg').textContent=msg;
+}
+fetch('status.json?'+Date.now()).then(r=>r.json()).then(s=>{
+  const age=(Date.now()-Date.parse(s.updated))/6e4;
+  if(age>20){const p=predict(s);show(p.arr,p.dep,s.mode,`Live data is ${Math.round(age)} minutes old, so this is the rule-based prediction.`)}
+  else show(s.arrivals,s.departures,s.mode,s.message);
+  $('upd').textContent='Updated '+new Date(s.updated).toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'})+' UK time';
+}).catch(()=>{$('msg').textContent='Could not load status.json. Check that the update workflow has run.'});
+</script></body></html>
